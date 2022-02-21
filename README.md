@@ -1,4 +1,4 @@
-### NEXTJS intro -- next 문서를 보며 느낀점.
+### NEXTJS -- NEXT  문서를 보며 느낀점.
 
 <br/>
 
