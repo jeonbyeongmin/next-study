@@ -35,4 +35,101 @@ SSR의 경우는 유저가 페이지를 요청했을 때 서버에서 HTML을 �
 
 정적 생성은 개츠비와 너무 유사하다. 하긴 정적 생성이라 당연한거긴 하다.
 공식 문서에서 데이터를 사용한 정적 생성은 Restful로 소개하고 있다.
-Next에서도 Graphql을 사용하는 것이 가능한지는 모르겠다.
+개츠비에서는 그냥 Graphql을 사용하여 쿼리문을 작성하면 됐지만
+Next에서는 getStaticProps 함수를 사용해야 하는 것 같다.
+
+```javascript
+export default function Home(props) { ... }
+
+export async function getStaticProps() {
+  // Get external data from the file system, API, DB, etc.
+  const data = ...
+
+  // The value of the `props` key will be
+  //  passed to the `Home` component
+  return {
+    props: ...
+  }
+}
+```
+
+문서만 읽어보면 파일 시스템에 접근하는 부분이 조금 다른 것 같은데, 개츠비는 gatsby-node에서 미리 정해주는 반면에
+넥스트는 lib이라는 곳에 파일 시스템에 접근하고 조작하는 로직을 짜주고, props를 사용하는 곳에서 이 함수를 사용하는 것 같다.
+
+```javascript
+import fs from "fs";
+import path from "path";
+import matter from "gray-matter";
+
+const postsDirectory = path.join(process.cwd(), "posts");
+
+export function getSortedPostsData() {
+  // Get file names under /posts
+  const fileNames = fs.readdirSync(postsDirectory);
+  const allPostsData = fileNames.map((fileName) => {
+    // Remove ".md" from file name to get id
+    const id = fileName.replace(/\.md$/, "");
+
+    // Read markdown file as string
+    const fullPath = path.join(postsDirectory, fileName);
+    const fileContents = fs.readFileSync(fullPath, "utf8");
+
+    // Use gray-matter to parse the post metadata section
+    const matterResult = matter(fileContents);
+
+    // Combine the data with the id
+    return {
+      id,
+      ...matterResult.data,
+    };
+  });
+  // Sort posts by date
+  return allPostsData.sort(({ date: a }, { date: b }) => {
+    if (a < b) {
+      return 1;
+    } else if (a > b) {
+      return -1;
+    } else {
+      return 0;
+    }
+  });
+}
+```
+
+```javascript
+import { getSortedPostsData } from "../lib/posts";
+
+export async function getStaticProps() {
+  const allPostsData = getSortedPostsData();
+  return {
+    props: {
+      allPostsData,
+    },
+  };
+}
+```
+
+gatStaticProps 는 파일 시스템 말고도 데이터베이스는 외부 API를 fetch하여 사용할 수도 있다고 한다.
+(사용해보진 않았지만 gatsby에서도 그랬다.)
+하지만 빌드 시간에 결정되는 것이라서 빌드 이후 클라이언트에서 getStaticProps가 실행되지는 않는다.
+외부 API로 대량의 데이터를 가져와서 정적 페이지를 구축하는 것이라면 좋지만
+역시 일반적이라면 정적페이지에 외부 API나 데이터베이스의 값을 사용할 것 같지는 않다...
+
+아무튼 API 요청을 자주 해줘야 하는 상황에서는 어울리지 않다. 이럴땐 getServerSideProps를 사용한다.
+getServerSideProps를 사용하지 않고 일바적인 방법으로 API 요청을 한다면 일반적인 리액트 앱처럼 CSR이 된다.
+
+```javascript
+export async function getServerSideProps(context) {
+  return {
+    props: {
+      // props for your component
+    },
+  };
+}
+```
+
+### SWR - React-query 같은거
+
+next.js에도 리액트 쿼리같은 데이터 패칭 라이브러리?가 있다. vercel에서 만들었고
+SSR을 제공하기 때문에 next.js랑 잘 쓰이는 것 같다. 아이디어나 사용법은 react-query랑 비슷해보인다.
+언제 한번 비교해보는 블로그 포스트를 작성하면 좋을 것 같다.
